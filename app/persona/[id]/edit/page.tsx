@@ -15,7 +15,7 @@ export default function FormularioPersonaEdit() {
   // 1. Obtener el ID dinámico de la URL
   const params = useParams();
   const id = params.id as string; 
-  
+  console.log("ID obtenido de la URL:", id);
   const [persona, setPersona] = useState<PersonaData>({
     nombre: '',
     apellido: '',

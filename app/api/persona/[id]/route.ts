@@ -11,18 +11,35 @@ const pool = new pg.Pool({
   database: PG_DATABASE,
 });
 
-// --- METODO GET (Obtener Persona por ID) ---
-// Firma corregida: Desestructura params directamente.
-export async function GET(request: Request, { params }: { params: { id: string } }) {
-  try {
-    const id = params.id; // Captura correcta del ID
+// --- FUNCIÓN DE UTILIDAD PARA EXTRAER EL ID ---
+// Se extrae el ID de la URL de la Request.
+function extractIdFromRequest(request: Request): string | null {
+    try {
+        const url = new URL(request.url);
+        const pathSegments = url.pathname.split('/');
+        // El ID debería ser el último segmento (ej: /api/persona/2 -> '2')
+        const id = pathSegments[pathSegments.length - 1]; 
+        
+        // Verificamos que no sea la carpeta padre 'persona'
+        return (id && id !== 'persona' && id.match(/^\d+$/)) ? id : null;
+    } catch (e) {
+        return null;
+    }
+}
 
-    // Si por alguna razón el ID es nulo o indefinido, manejamos el error
+
+// --- METODO GET (Usando extractIdFromRequest) ---
+// Quitamos { params } de la firma para evitar el error.
+export async function GET(request: Request) { 
+  try {
+    // 1. OBTENEMOS EL ID DIRECTAMENTE DE LA URL
+    const id = extractIdFromRequest(request); 
+
     if (!id) {
-        return NextResponse.json(
-            { error: "ID de persona no proporcionado" },
-            { status: 400 }
-        );
+      return NextResponse.json(
+        { error: "ID de persona no proporcionado en la URL" },
+        { status: 400 }
+      );
     }
     
     const query = `
@@ -32,7 +49,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     `;
 
     const result = await pool.query(query, [id]);
-
+    // ... (El resto del manejo de 404/200 es igual)
     if (result.rowCount === 0) {
       return NextResponse.json(
         { error: `Persona con ID ${id} no encontrada` },
@@ -51,11 +68,20 @@ export async function GET(request: Request, { params }: { params: { id: string }
   }
 }
 
-// --- METODO PUT (Actualizar Persona por ID) ---
-// Firma corregida: Desestructura params directamente.
-export async function PUT(request: Request, { params }: { params: { id: string } }) {
+// --- METODO PUT (Usando extractIdFromRequest) ---
+// Quitamos { params } de la firma para evitar el error.
+export async function PUT(request: Request) {
   try {
-    const id = params.id; // Captura correcta del ID
+    // 1. OBTENEMOS EL ID DIRECTAMENTE DE LA URL
+    const id = extractIdFromRequest(request); 
+    
+    if (!id) {
+      return NextResponse.json(
+        { error: "ID de persona no proporcionado en la URL" },
+        { status: 400 }
+      );
+    }
+    
     const { nombre, apellido, nacimiento, dni } = await request.json();
 
     if (!nombre || !apellido || !nacimiento || !dni) {
@@ -65,6 +91,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       );
     }
 
+    // ... (El resto de la lógica SQL se mantiene igual)
     const query = `
       UPDATE persona
       SET nombre = $1, apellido = $2, nacimiento = $3, dni = $4
