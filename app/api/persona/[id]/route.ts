@@ -11,37 +11,19 @@ const pool = new pg.Pool({
   database: PG_DATABASE,
 });
 
-// --- FUNCIÓN DE UTILIDAD PARA EXTRAER EL ID ---
-// Se extrae el ID de la URL de la Request.
-function extractIdFromRequest(request: Request): string | null {
-    try {
-        const url = new URL(request.url);
-        const pathSegments = url.pathname.split('/');
-        // El ID debería ser el último segmento (ej: /api/persona/2 -> '2')
-        const id = pathSegments[pathSegments.length - 1]; 
-        
-        // Verificamos que no sea la carpeta padre 'persona'
-        return (id && id !== 'persona' && id.match(/^\d+$/)) ? id : null;
-    } catch (e) {
-        return null;
-    }
-}
+// Definimos el tipo para los params (Next.js 15/16 requiere que sea una Promesa)
+type Params = Promise<{ id: string }>;
 
-
-// --- METODO GET (Usando extractIdFromRequest) ---
-// Quitamos { params } de la firma para evitar el error.
-export async function GET(request: Request) { 
+// --- METODO GET ---
+export async function GET(request: Request, { params }: { params: Params }) {
   try {
-    // 1. OBTENEMOS EL ID DIRECTAMENTE DE LA URL
-    const id = extractIdFromRequest(request); 
+    // 1. IMPORTANTE: En Next.js 15+, params se debe esperar con 'await'
+    const { id } = await params;
 
     if (!id) {
-      return NextResponse.json(
-        { error: "ID de persona no proporcionado en la URL" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "ID no válido" }, { status: 400 });
     }
-    
+
     const query = `
       SELECT id, nombre, apellido, nacimiento, dni
       FROM persona
@@ -49,7 +31,7 @@ export async function GET(request: Request) {
     `;
 
     const result = await pool.query(query, [id]);
-    // ... (El resto del manejo de 404/200 es igual)
+
     if (result.rowCount === 0) {
       return NextResponse.json(
         { error: `Persona con ID ${id} no encontrada` },
@@ -68,20 +50,16 @@ export async function GET(request: Request) {
   }
 }
 
-// --- METODO PUT (Usando extractIdFromRequest) ---
-// Quitamos { params } de la firma para evitar el error.
-export async function PUT(request: Request) {
+// --- METODO PUT ---
+export async function PUT(request: Request, { params }: { params: Params }) {
   try {
-    // 1. OBTENEMOS EL ID DIRECTAMENTE DE LA URL
-    const id = extractIdFromRequest(request); 
-    
+    // 1. IMPORTANTE: Esperamos el params
+    const { id } = await params;
+
     if (!id) {
-      return NextResponse.json(
-        { error: "ID de persona no proporcionado en la URL" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "ID no válido" }, { status: 400 });
     }
-    
+
     const { nombre, apellido, nacimiento, dni } = await request.json();
 
     if (!nombre || !apellido || !nacimiento || !dni) {
@@ -91,7 +69,6 @@ export async function PUT(request: Request) {
       );
     }
 
-    // ... (El resto de la lógica SQL se mantiene igual)
     const query = `
       UPDATE persona
       SET nombre = $1, apellido = $2, nacimiento = $3, dni = $4
@@ -100,7 +77,6 @@ export async function PUT(request: Request) {
     `;
 
     const values = [nombre, apellido, nacimiento, dni, id];
-
     const result = await pool.query(query, values);
 
     if (result.rowCount === 0) {
