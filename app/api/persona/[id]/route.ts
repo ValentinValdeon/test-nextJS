@@ -98,3 +98,49 @@ export async function PUT(request: Request, { params }: { params: Params }) {
     );
   }
 }
+
+// --- METODO DELETE ---
+/**
+ * Elimina una persona por su ID.
+ * Maneja la ruta DELETE en /api/persona/[id]
+ */
+export async function DELETE(request: Request, { params }: { params: Params }) {
+  try {
+    // 1. IMPORTANTE: Esperamos el params
+    const { id } = await params;
+
+    if (!id) {
+      return NextResponse.json({ error: "ID no válido" }, { status: 400 });
+    }
+
+    // Consulta SQL para eliminar el registro
+    const query = `
+      DELETE FROM persona
+      WHERE id = $1;
+    `;
+
+    const result = await pool.query(query, [id]);
+
+    // 2. Verificar si se eliminó alguna fila
+    if (result.rowCount === 0) {
+      return NextResponse.json(
+        { error: `Persona con ID ${id} no encontrada para eliminar` },
+        { status: 404 }
+      );
+    }
+
+    // 3. Respuesta exitosa
+    // Un DELETE exitoso típicamente devuelve un status 204 (No Content) o 200 (OK) con un mensaje.
+    return NextResponse.json(
+      { message: `Persona con ID ${id} eliminada correctamente` },
+      { status: 200 }
+      // O usa { status: 204 } si no quieres devolver contenido en el body (es más estándar para DELETE)
+    );
+  } catch (error) {
+    console.error("ERROR DELETE:", error);
+    return NextResponse.json(
+      { error: "Error al eliminar persona" },
+      { status: 500 }
+    );
+  }
+}

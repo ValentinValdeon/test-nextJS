@@ -2,20 +2,63 @@
 
 import { useEffect, useState } from "react";
 
+// Definimos la estructura de la Persona para mayor claridad (opcional, pero buena práctica)
+// Se asume que los campos son los que trae la API: id, nombre, apellido, nacimiento, dni.
+interface Persona {
+  id: string | number;
+  nombre: string;
+  apellido: string;
+  nacimiento: string;
+  dni: string;
+}
+
 export default function TablaPersonas() {
-  const [personas, setPersonas] = useState([]);
+  const [personas, setPersonas] = useState<Persona[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // --- FUNCIÓN PARA CARGAR PERSONAS ---
   const cargarPersonas = async () => {
     setLoading(true);
     try {
       const res = await fetch("/api/persona");
-      const data = await res.json();
+      const data: Persona[] = await res.json();
       setPersonas(data);
     } catch (error) {
       console.error("Error al cargar personas:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // --- FUNCIÓN PARA ELIMINAR PERSONA ---
+  const handleEliminar = async (id: string | number, nombre: string, apellido: string) => {
+    // 1. Confirmación de usuario
+    if (!confirm(`¿Estás seguro de que quieres eliminar a ${nombre} ${apellido} (ID: ${id})?`)) {
+      return;
+    }
+
+    try {
+      // 2. Llamada al endpoint DELETE
+      const response = await fetch(`/api/persona/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        // 3. Eliminación exitosa: Refrescar la tabla
+        alert(`✅ Persona ${nombre} ${apellido} eliminada correctamente.`);
+        // Volvemos a cargar la lista para actualizar el estado
+        cargarPersonas(); 
+      } else {
+        // 4. Manejo de errores de la API (ej. 404 Not Found)
+        const errorData = await response.json();
+        alert(`❌ Error al eliminar: ${errorData.error || 'Algo salió mal en el servidor.'}`);
+      }
+    } catch (error) {
+      console.error('Error en la solicitud DELETE:', error);
+      alert('❌ Error de conexión al intentar eliminar.');
     }
   };
 
@@ -64,11 +107,14 @@ export default function TablaPersonas() {
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       DNI
                     </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Accion
+                    </th>
                   </tr>
                 </thead>
 
                 <tbody className="divide-y divide-gray-200">
-                  {personas.map((p: any, index: number) => (
+                  {personas.map((p, index: number) => (
                     <tr 
                       key={p.id}
                       className="hover:bg-indigo-50 transition duration-150"
@@ -92,6 +138,16 @@ export default function TablaPersonas() {
                           {p.dni}
                         </span>
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {/* AÑADIMOS EL MANEJADOR onClick */}
+                        <button 
+                            onClick={() => handleEliminar(p.id, p.nombre, p.apellido)} 
+                            className="text-indigo-600 hover:text-indigo-800 font-medium text-sm transition duration-200 flex items-center gap-2 p-2 border rounded hover:bg-indigo-200 cursor-pointer"
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            Eliminar
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -103,11 +159,12 @@ export default function TablaPersonas() {
             <button
               onClick={cargarPersonas}
               className="text-indigo-600 hover:text-indigo-800 font-medium text-sm transition duration-200 flex items-center gap-2"
+              disabled={loading} // Deshabilita el botón mientras carga
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
-              Actualizar
+              {loading ? 'Cargando...' : 'Actualizar'}
             </button>
           </div>
         </div>
